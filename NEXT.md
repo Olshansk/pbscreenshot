@@ -1,5 +1,7 @@
 # NEXT — pbscreenshot pickup notes <!-- omit in toc -->
 
+Historical notes from 2026-08-13. Current architecture and verification results are in [docs/diagnostics-2026-10-04.md](docs/diagnostics-2026-10-04.md). The statements below describe the earlier snapshot.
+
 Written 2026-08-13. Everything builds, signs, and installs; the one thing never verified end-to-end is an actual pixel capture.
 
 - [State of things](#state-of-things)

@@ -1,0 +1,40 @@
+name: Desktop builds and installation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    name: Windows native build and reinstall
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build and test settings
+        run: |
+          make windows-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          make windows-test
+      - name: Exercise native desktop APIs
+        run: make windows-test-native
+      - name: Package self-contained installer
+        run: make windows-package
+      - name: Install, uninstall, and reinstall
+        run: make windows-test-install
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pbscreenshot-windows-x64
+          path: dist/windows/pbscreenshot-setup-win-x64.exe
+          if-no-files-found: error
+  macos:
+    name: macOS build and tests
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: make build test

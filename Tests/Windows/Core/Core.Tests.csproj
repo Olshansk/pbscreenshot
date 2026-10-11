@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup><ProjectReference Include="../../../Sources/Windows/Core/PBScreenshot.Core.csproj" /></ItemGroup>
+</Project>

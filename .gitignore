@@ -1,6 +1,8 @@
 .build/
 .swiftpm/
 dist/
+output/
 *.dmg
 .DS_Store
-Package.resolved
+**/bin/
+**/obj/

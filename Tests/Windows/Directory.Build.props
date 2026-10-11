@@ -1,0 +1,4 @@
+<Project>
+  <Import Project="../../Sources/Windows/Directory.Build.props" />
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+</Project>

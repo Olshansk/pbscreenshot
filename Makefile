@@ -1,4 +1,22 @@
 .DEFAULT_GOAL := help
+include makefiles/windows.mk
+
+ifeq ($(OS),Windows_NT)
+.PHONY: help build test install uninstall
+help: windows-help
+build: windows-build
+test: windows-test windows-test-native
+install: windows-package windows-install
+uninstall: windows-uninstall
+else
+.DEFAULT_GOAL := help
+.NOTPARALLEL:
+
+# Override for toolchain issues, e.g. SWIFT_FLAGS=--build-system=native.
+SWIFT_FLAGS ?=
+INSTALL_DIR ?= $(HOME)/Applications
+# Ad-hoc signing is local and requires no Apple account or certificate.
+LOCAL_SIGN_ID ?= -
 
 # ============================================================================
 # Configuration
@@ -10,17 +28,18 @@ BUNDLE_ID  = com.olshansky.pbscreenshot
 REPO       = olshansk/pbscreenshot
 TAP        = olshansk/homebrew-tap
 
-VERSION   := $(shell awk -F'"' '/static let version/ {print $$2}' Sources/PBScreenshotKit/Version.swift)
+VERSION   := $(shell awk -F'"' '/static let version/ {print $$2}' Sources/Core/Config/Version.swift)
 
 BUILD_DIR    = .build
 DIST_DIR     = dist
-UNIVERSAL    = $(BUILD_DIR)/apple/Products/Release
+UNIVERSAL    = $(BUILD_DIR)/universal/release
 APP          = $(DIST_DIR)/$(APP_NAME)
+LOCAL_APP    = $(DIST_DIR)/local/$(APP_NAME)
 DMG          = $(DIST_DIR)/$(NAME)-$(VERSION).dmg
 
 # Resolved from the keychain rather than hardcoded — certificate common names
 # contain surprises, and a stale literal fails with an opaque keychain error.
-SIGN_ID   := $(shell security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ {print $$2; exit}')
+SIGN_ID    = $(shell security find-identity -v -p codesigning | awk -F'"' '/Developer ID Application/ {print $$2; exit}')
 NOTARY_PROFILE ?= pbscreenshot-notary
 
 # ============================================================================
@@ -39,33 +58,53 @@ CROSS := ✗
 # ============================================================================
 # Development
 # ============================================================================
-.PHONY: build test lint launch install kill
+.PHONY: build test lint launch install install-clt uninstall kill _local-app
 
 build: ## Build debug binaries
 	@printf "$(CYAN)Building debug...$(RESET)\n"
-	@swift build
+	@swift build $(SWIFT_FLAGS)
 	@printf "$(GREEN)$(CHECK) Built $(BUILD_DIR)/debug/$(NAME)$(RESET)\n"
 
 test: ## Run the test suite
-	@swift test
+	@swift test $(SWIFT_FLAGS)
 
 lint: ## Format sources with swift-format (no-op if unavailable)
 	@command -v swift-format >/dev/null 2>&1 && \
 		swift-format format --in-place --recursive Sources Tests && \
 		printf "$(GREEN)$(CHECK) Formatted$(RESET)\n" || \
-		printf "$(YELLOW)swift-format not installed — skipping$(RESET)\n"
+		printf "$(YELLOW)swift-format not installed — skipping. Install it with: brew install swift-format$(RESET)\n"
 
-launch: app install ## Build, install to ~/Applications, and launch
-	@open ~/Applications/$(APP_NAME)
+launch: install ## Build and launch locally; no Apple account or certificate required
+	@open "$(INSTALL_DIR)/$(APP_NAME)"
 	@printf "$(GREEN)$(CHECK) Launched — look for the camera icon in the menu bar$(RESET)\n"
 
-install: ## Install the app bundle into ~/Applications (kills any running copy first)
-	@test -d "$(APP)" || { printf "$(RED)$(CROSS) No bundle at $(APP). Run: make app$(RESET)\n"; exit 1; }
-	@mkdir -p ~/Applications
+_local-app: build
+	@binaries=$$(swift build $(SWIFT_FLAGS) --show-bin-path) && \
+		bash scripts/macos/assemble-app.sh "$$binaries" "$(LOCAL_APP)" "$(VERSION)"
+	@codesign --force --timestamp=none --sign "$(LOCAL_SIGN_ID)" "$(LOCAL_APP)/Contents/MacOS/$(NAME)"
+	@codesign --force --timestamp=none --sign "$(LOCAL_SIGN_ID)" "$(LOCAL_APP)/Contents/MacOS/$(AGENT)"
+	@codesign --force --timestamp=none --sign "$(LOCAL_SIGN_ID)" "$(LOCAL_APP)"
+	@codesign --verify --deep --strict "$(LOCAL_APP)"
+	@if [ "$(LOCAL_SIGN_ID)" = "-" ]; then \
+		printf "$(YELLOW)Local ad-hoc build: macOS may require Screen Recording approval again after rebuilding.$(RESET)\n"; \
+	fi
+
+install-clt: ## Build and install using the Command Line Tools fallback
+	@bash scripts/macos/make-with-clt.sh install
+
+install: _local-app ## Build and install locally without a developer certificate
+	@mkdir -p "$(INSTALL_DIR)"
+	@rm -rf "$(INSTALL_DIR)/.$(APP_NAME).new"
+	@ditto "$(LOCAL_APP)" "$(INSTALL_DIR)/.$(APP_NAME).new"
+	@codesign --verify --deep --strict "$(INSTALL_DIR)/.$(APP_NAME).new"
 	@pkill -x $(AGENT) 2>/dev/null && sleep 1 || true
-	@rm -rf ~/Applications/$(APP_NAME)
-	@cp -R "$(APP)" ~/Applications/$(APP_NAME)
-	@printf "$(GREEN)$(CHECK) Installed to ~/Applications/$(APP_NAME)$(RESET)\n"
+	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
+	@mv "$(INSTALL_DIR)/.$(APP_NAME).new" "$(INSTALL_DIR)/$(APP_NAME)"
+	@printf "$(GREEN)$(CHECK) Installed to $(INSTALL_DIR)/$(APP_NAME)$(RESET)\n"
+
+uninstall: kill ## Remove the installed app, preserving preferences and permissions
+	@rm -rf "$(INSTALL_DIR)/$(APP_NAME)"
+	@printf "$(GREEN)$(CHECK) Removed $(INSTALL_DIR)/$(APP_NAME); preferences preserved$(RESET)\n"
 
 kill: ## Quit the running menu bar agent
 	@pkill -x $(AGENT) 2>/dev/null && \
@@ -79,17 +118,12 @@ kill: ## Quit the running menu bar agent
 
 build-release: ## Build universal (arm64 + x86_64) release binaries
 	@printf "$(CYAN)Building universal release...$(RESET)\n"
-	@swift build -c release --arch arm64 --arch x86_64
+	@bash scripts/macos/build-release.sh $(SWIFT_FLAGS)
 	@printf "$(GREEN)$(CHECK) Built $(UNIVERSAL)$(RESET)\n"
 
 app: build-release ## Assemble pbscreenshot.app (agent + CLI in one bundle)
 	@printf "$(CYAN)Assembling $(APP_NAME)...$(RESET)\n"
-	@rm -rf "$(APP)"
-	@mkdir -p "$(APP)/Contents/MacOS" "$(APP)/Contents/Resources"
-	@cp "$(UNIVERSAL)/$(AGENT)" "$(APP)/Contents/MacOS/$(AGENT)"
-	@cp "$(UNIVERSAL)/$(NAME)" "$(APP)/Contents/MacOS/$(NAME)"
-	@sed 's/@VERSION@/$(VERSION)/g' Resources/Info.plist > "$(APP)/Contents/Info.plist"
-	@printf "APPL????" > "$(APP)/Contents/PkgInfo"
+	@bash scripts/macos/assemble-app.sh "$(UNIVERSAL)" "$(APP)" "$(VERSION)"
 	@printf "$(GREEN)$(CHECK) $(APP) (v$(VERSION))$(RESET)\n"
 
 sign: ## Code sign the bundle with hardened runtime (inner binaries first)
@@ -98,7 +132,7 @@ sign: ## Code sign the bundle with hardened runtime (inner binaries first)
 	@codesign --force --options runtime --timestamp --sign "$(SIGN_ID)" "$(APP)/Contents/MacOS/$(NAME)"
 	@codesign --force --options runtime --timestamp --sign "$(SIGN_ID)" "$(APP)/Contents/MacOS/$(AGENT)"
 	@codesign --force --options runtime --timestamp --sign "$(SIGN_ID)" "$(APP)"
-	@codesign --verify --strict --verbose=2 "$(APP)" 2>&1 | tail -2
+	@codesign --verify --deep --strict --verbose=2 "$(APP)"
 	@printf "$(GREEN)$(CHECK) Signed$(RESET)\n"
 
 dmg: ## Build the distributable DMG
@@ -152,7 +186,7 @@ doctor: ## Check the toolchain needed to cut a release
 			printf "$(RED)$(CROSS) missing$(RESET) — run: xcrun notarytool store-credentials $(NOTARY_PROFILE)\n"; fi
 	@printf "$(CYAN)%-22s$(RESET) " "create-dmg"; \
 		command -v create-dmg >/dev/null 2>&1 && printf "$(GREEN)$(CHECK) installed$(RESET)\n" || \
-		printf "$(YELLOW)missing (hdiutil fallback)$(RESET) — brew install create-dmg\n"
+		printf "$(YELLOW)missing (hdiutil fallback)$(RESET) — install it with: brew install create-dmg\n"
 
 info: ## Show build product info
 	@printf "$(BOLD)=== $(NAME) $(VERSION) ===$(RESET)\n"
@@ -180,7 +214,7 @@ clean: ## Remove build and dist artifacts
 # ============================================================================
 .PHONY: help
 
-help: ## Show available commands
+help: windows-help ## Show available commands
 	@printf "\n"
 	@printf "$(BOLD)$(CYAN)╔═══════════════════════════════╗$(RESET)\n"
 	@printf "$(BOLD)$(CYAN)║        pbscreenshot           ║$(RESET)\n"
@@ -189,8 +223,10 @@ help: ## Show available commands
 	@printf "$(CYAN)%-18s$(RESET) %s\n" "build" "Build debug binaries"
 	@printf "$(CYAN)%-18s$(RESET) %s\n" "test" "Run the test suite"
 	@printf "$(CYAN)%-18s$(RESET) %s\n" "lint" "Format sources with swift-format"
-	@printf "$(CYAN)%-18s$(RESET) %s\n" "launch" "Build, install, and launch the agent"
-	@printf "$(CYAN)%-18s$(RESET) %s\n" "install" "Install bundle into ~/Applications"
+	@printf "$(CYAN)%-18s$(RESET) %s\n" "launch" "Build, install, and launch locally"
+	@printf "$(CYAN)%-18s$(RESET) %s\n" "install" "Build and install locally; no developer certificate"
+	@printf "$(CYAN)%-18s$(RESET) %s\n" "install-clt" "Build and install with the Command Line Tools fallback"
+	@printf "$(CYAN)%-18s$(RESET) %s\n" "uninstall" "Remove installed app; preserve preferences"
 	@printf "$(CYAN)%-18s$(RESET) %s\n" "kill" "Quit the running agent"
 	@printf "\n"
 	@printf "$(BOLD)=== 📦 Packaging ===$(RESET)\n"
@@ -217,3 +253,5 @@ help: ## Show available commands
 	@printf "$(RED)$(CROSS) Unknown target '$@'$(RESET)\n"
 	@printf "   Run $(CYAN)make help$(RESET) to see available targets\n"
 	@exit 1
+
+endif

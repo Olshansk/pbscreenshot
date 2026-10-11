@@ -14,6 +14,8 @@
 	<string>pbscreenshot</string>
 	<key>CFBundleDisplayName</key>
 	<string>pbscreenshot</string>
+	<key>CFBundleIconFile</key>
+	<string>pbscreenshot</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
