@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := help
+.NOTPARALLEL:
 include makefiles/windows.mk
 
 ifeq ($(OS),Windows_NT)
@@ -10,7 +11,6 @@ install: windows-package windows-install
 uninstall: windows-uninstall
 else
 .DEFAULT_GOAL := help
-.NOTPARALLEL:
 
 # Override for toolchain issues, e.g. SWIFT_FLAGS=--build-system=native.
 SWIFT_FLAGS ?=

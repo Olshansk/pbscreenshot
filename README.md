@@ -152,7 +152,7 @@ The package builds four targets: `PBScreenshotKit` (portable types/storage), `PB
 
 ## Architecture and diagnostics
 
-See [the full source tree and target boundaries](docs/architecture.md) and [the installation/permission diagnostic report](docs/diagnostics-2026-10-04.md).
+See [the full source tree and target boundaries](docs/architecture.md), [the desktop CI diagnostic report](docs/diagnostics-2026-10-11.md), and [the earlier macOS permission investigation](docs/diagnostics-2026-10-04.md).
 macOS and Windows have native apps; Linux remains an unimplemented adapter boundary.
 
 Local installation uses an ad-hoc signature by default; production signing stays in `make release`.
