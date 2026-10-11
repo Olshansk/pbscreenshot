@@ -22,14 +22,18 @@ jobs:
           make windows-test
       - name: Exercise native desktop APIs
         run: make windows-test-native
-      - name: Package self-contained installer
-        run: make windows-package
+      - name: Build and install from the cloned repository
+        run: make install
+      - name: Capture actual Windows installer
+        run: make windows-screenshot
       - name: Install, uninstall, and reinstall
         run: make windows-test-install
       - uses: actions/upload-artifact@v4
         with:
           name: pbscreenshot-windows-x64
-          path: dist/windows/pbscreenshot-setup-win-x64.exe
+          path: |
+            dist/windows/pbscreenshot-setup-win-x64.exe
+            dist/windows/evidence/windows-installation.png
           if-no-files-found: error
   macos:
     name: macOS build and tests

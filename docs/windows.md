@@ -11,7 +11,9 @@ The installer includes the .NET runtime and installs for the current user withou
 
 ## Install on your laptop
 
-Use a Windows 11 x64 PC. Download `pbscreenshot-windows-x64` from a successful [Desktop builds and installation workflow](https://github.com/Olshansk/pbscreenshot/actions/workflows/desktop.yml), extract it, and run `pbscreenshot-setup-win-x64.exe`.
+For the primary clone-and-install workflow on Windows 11 x64, follow the [main README](../README.md#windows) and run `make install`.
+
+Alternatively, download `pbscreenshot-windows-x64` from a successful [Desktop builds and installation workflow](https://github.com/Olshansk/pbscreenshot/actions/workflows/desktop.yml), extract it, and run `pbscreenshot-setup-win-x64.exe`.
 This is a local development installer, not a signed public release.
 Windows may show an unknown-publisher warning.
 
@@ -105,9 +107,9 @@ The platform APIs and deployment constraints differ, so the Windows UI does not 
 ## Validation
 
 GitHub Actions starts a fresh `windows-2022` x64 VM, installs .NET 10, compiles the app, and tests configuration and native APIs.
-It creates the self-contained installer, silently installs it, starts the installed executable, checks its message loop, uninstalls, verifies startup cleanup and settings retention, reinstalls, starts it again, and uninstalls.
+It runs the documented `make install` flow, captures the actual installer window for review, starts the installed executable, checks its message loop, uninstalls, verifies startup cleanup and settings retention, reinstalls, starts it again, and uninstalls.
 The lifecycle target is restricted to GitHub Actions because it modifies a user installation.
-The downloadable artifact is the same installer exercised in CI.
+The downloadable artifact contains the tested installer and its screenshot.
 
 ## Current limits
 

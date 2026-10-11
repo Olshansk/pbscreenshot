@@ -7,7 +7,7 @@ ifeq ($(OS),Windows_NT)
 help: windows-help
 build: windows-build
 test: windows-test windows-test-native
-install: windows-package windows-install
+install: windows-install
 uninstall: windows-uninstall
 else
 .DEFAULT_GOAL := help

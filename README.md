@@ -76,10 +76,89 @@ DEVELOPER_DIR=/Library/Developer/CommandLineTools make install-clt
 
 ## Windows
 
-A separate native Windows tray app and self-contained per-user installer are available from the [Windows CI workflow](https://github.com/Olshansk/pbscreenshot/actions/workflows/desktop.yml).
-See [Windows installation, build targets, architecture, and limitations](docs/windows.md).
-On Windows, `make install` builds the installer and installs it.
-No Apple account or .NET runtime installation is needed to run the packaged app.
+Windows 11 x64 users can **clone this repository and run `make install`**.
+The build and installation happen locally; no app store, developer account, or signing certificate is required.
+
+Install the build tools once from PowerShell using the community WinGet source (or their official installers).
+Some build-tool installers may request administrator access; pbscreenshot itself installs only for your user.
+
+Git:
+
+```powershell
+winget install --id Git.Git --exact --source winget
+```
+
+GNU Make:
+
+```powershell
+winget install --id ezwinports.make --exact --source winget
+```
+
+.NET 10 SDK:
+
+```powershell
+winget install --id Microsoft.DotNet.SDK.10 --exact --source winget
+```
+
+PowerShell 7:
+
+```powershell
+winget install --id Microsoft.PowerShell --exact --source winget
+```
+
+Inno Setup 6:
+
+```powershell
+winget install --id JRSoftware.InnoSetup --exact --source winget
+```
+
+Close and reopen PowerShell so the tools are on `PATH`, then clone:
+
+```powershell
+git clone https://github.com/Olshansk/pbscreenshot.git
+```
+
+Enter the repository:
+
+```powershell
+cd pbscreenshot
+```
+
+Build the native app, package its runtime, and install it:
+
+```powershell
+make install
+```
+
+`make windows-install` is the explicit Windows equivalent and also builds before installing.
+The first build downloads .NET dependencies; subsequent build/install steps run locally.
+The packaged application includes its runtime, so it does not require a separate .NET runtime installation.
+
+Launch **pbscreenshot** from Start.
+Right-click its system tray icon (check the overflow arrow) to enable/disable captures or open **Settings**.
+Defaults: **Ctrl+Shift+2** selects a region; **Ctrl+Shift+3** captures the full desktop.
+Change either shortcut and enable **Launch when I sign in** in Settings.
+
+The app installs to `%LOCALAPPDATA%\Programs\pbscreenshot`.
+Uninstall from Windows Settings → Apps, or from the repository:
+
+```powershell
+make windows-uninstall
+```
+
+Uninstall removes startup registration and preserves preferences for reinstall.
+To reinstall or update from source, run `make install` again.
+
+| # | Severity | Local Windows notes |
+|---|---|---|
+| 1 | 🟡 | The local installer is unsigned; Windows may identify it as an unknown publisher. |
+| 2 | 🟢 | CI runs the same `make install` command on a fresh Windows VM, tests capture/clipboard/hotkeys/startup, and verifies uninstall/reinstall. |
+
+![pbscreenshot Windows installer, captured on the CI VM](docs/images/windows-installation.png)
+
+Actual installer UI captured on the Windows CI VM. `make install` runs this installer unattended; the interactive window is shown here for reference.
+
+See [Windows architecture and test details](docs/windows.md) and [CI results and installer artifacts](https://github.com/Olshansk/pbscreenshot/actions/workflows/desktop.yml).
 
 ## Usage
 
