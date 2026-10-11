@@ -14,9 +14,22 @@ internal static class Program
         var login = new LoginItem(Environment.ProcessPath!, "pbscreenshot-ci-" + Guid.NewGuid());
         try
         {
+            using var marker = new Form
+            {
+                FormBorderStyle = FormBorderStyle.None, StartPosition = FormStartPosition.Manual,
+                Bounds = new Rectangle(100, 100, 80, 80), BackColor = Color.Lime, TopMost = true, ShowInTaskbar = false
+            };
+            marker.Show();
+            Application.DoEvents();
+            Thread.Sleep(300);
             ScreenCapture.Save(SystemInformation.VirtualScreen, path);
-            using (var image = Image.FromFile(path))
+            using (var image = new Bitmap(path))
+                {
                 Assert(image.Width == SystemInformation.VirtualScreen.Width && image.Height == SystemInformation.VirtualScreen.Height, "real desktop PNG dimensions");
+                var pixel = image.GetPixel(marker.Left + 20 - SystemInformation.VirtualScreen.Left, marker.Top + 20 - SystemInformation.VirtualScreen.Top);
+                Assert(pixel.G > 220 && pixel.R < 30 && pixel.B < 30, "capture contains the rendered desktop marker, not a blank screen");
+            }
+            marker.Close();
             FileClipboard.Copy(path);
             Assert(Clipboard.GetFileDropList().Contains(path), "native file-reference clipboard round trip");
             using var first = new GlobalHotkeys();
