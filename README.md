@@ -154,6 +154,10 @@ To reinstall or update from source, run `make install` again.
 | 1 | 🟡 | The local installer is unsigned; Windows may identify it as an unknown publisher. |
 | 2 | 🟢 | CI runs the same `make install` command on a fresh Windows VM, tests capture/clipboard/hotkeys/startup, and verifies uninstall/reinstall. |
 
+![pbscreenshot Windows installer, captured on the CI VM](docs/images/windows-installation.png)
+
+Actual installer UI captured on the Windows CI VM. `make install` runs this installer unattended; the interactive window is shown here for reference.
+
 See [Windows architecture and test details](docs/windows.md) and [CI results and installer artifacts](https://github.com/Olshansk/pbscreenshot/actions/workflows/desktop.yml).
 
 ## Usage
